@@ -164,11 +164,11 @@ export default function PayInvoice() {
         </div>
 
         <div className="bg-slate-600 rounded p-4 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-300">Amount</span>
-            <span className="text-2xl font-bold text-white">🔒</span>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-slate-300">Amount Due</span>
+            <span className="text-2xl font-bold text-white">{(invoice.amountCents / 100).toFixed(2)} USDC</span>
           </div>
-          <p className="text-slate-400 text-sm mb-4">Amount hidden / Privacy enabled</p>
+          <p className="text-slate-400 text-xs mb-4">Sent privately — amount not visible on-chain</p>
 
           {invoice.note && (
             <div className="mb-4">

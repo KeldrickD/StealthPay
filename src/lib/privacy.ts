@@ -16,11 +16,11 @@ export function toUsdcBaseUnits(amountCents: number): bigint {
  */
 export async function depositUsdcPrivately(args: {
   connection: Connection
-  payerWallet: any
-  amountCents: number
+  wallet: any
   usdcMint: string
-}): Promise<{ signature: string; status: 'success' | 'mock' }> {
-  const { connection, payerWallet, amountCents, usdcMint } = args
+  baseUnits: string
+}): Promise<string> {
+  const { connection, wallet, usdcMint, baseUnits } = args
 
   try {
     // Dynamic import to avoid Next.js bundling issues
@@ -28,7 +28,7 @@ export async function depositUsdcPrivately(args: {
     const PrivacyCash = mod?.PrivacyCash
 
     if (!PrivacyCash) {
-      return { signature: `mock_sdk_${Date.now()}`, status: 'mock' }
+      return `mock_sdk_${Date.now()}`
     }
 
     // Use connection's RPC URL if available, fallback to env
@@ -39,26 +39,25 @@ export async function depositUsdcPrivately(args: {
 
     // Wallet can sign locally; for this we use wallet's public key
     // and the SDK will use the connection + wallet to sign the deposit tx
-    const payerPublicKey = payerWallet.publicKey?.toString()
+    const payerPublicKey = wallet.publicKey?.toString()
     if (!payerPublicKey) throw new Error('Wallet not connected')
 
     const pc = new PrivacyCash({
       RPC_url: rpcUrl,
-      owner: payerWallet, // Pass wallet adapter; SDK knows how to use it
+      owner: wallet, // Pass wallet adapter; SDK knows how to use it
       enableDebug: false,
     })
 
-    const baseUnits = toUsdcBaseUnits(amountCents).toString()
     const depositResult = await pc.depositSPL({ mintAddress: usdcMint, base_units: baseUnits })
 
     const sig = depositResult?.tx || depositResult?.signature || ''
     if (!sig) throw new Error('No signature from deposit')
 
-    return { signature: sig, status: 'success' }
+    return sig
   } catch (e) {
     console.error('Deposit failed:', e)
     // Fallback to mock for demo purposes
-    return { signature: `mock_deposit_${Date.now()}`, status: 'mock' }
+    return `mock_deposit_${Date.now()}`
   }
 }
 
@@ -67,24 +66,20 @@ export async function depositUsdcPrivately(args: {
  * Relayer calls this with its own key to withdraw to recipient
  * SDK automatically fetches the payer's encrypted UTXOs
  */
-export async function withdrawUsdcViaRelayer(args: {
+export async function withdrawViaRelayer(args: {
+  relayerUrl: string
   recipientAddress: string
   mintAddress: string
-  amountCents: number
-  payerPublicKey?: string // Optional: hint for which payer's UTXOs to use
+  base_units: string
+  depositSig: string
+  invoiceId: string
 }): Promise<string> {
-  const { recipientAddress, mintAddress, amountCents } = args
+  const { relayerUrl, recipientAddress, mintAddress, base_units, depositSig, invoiceId } = args
 
-  const relayer = process.env.NEXT_PUBLIC_RELAYER_URL
   const token = process.env.NEXT_PUBLIC_RELAYER_TOKEN
-  const baseUnits = toUsdcBaseUnits(amountCents).toString()
-
-  if (!relayer) {
-    return `mock_no_relayer_${Date.now()}`
-  }
 
   try {
-    const res = await fetch(`${relayer.replace(/\/$/, '')}/withdraw`, {
+    const res = await fetch(`${relayerUrl.replace(/\/$/, '')}/withdraw`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -93,8 +88,9 @@ export async function withdrawUsdcViaRelayer(args: {
       body: JSON.stringify({
         recipientAddress,
         mintAddress,
-        base_units: baseUnits,
-        payerPublicKey: args.payerPublicKey || 'auto', // SDK infers if not provided
+        base_units,
+        depositSig,
+        invoiceId,
       }),
     })
 

@@ -6,6 +6,34 @@ import { Connection, PublicKey } from '@solana/web3.js'
 const app = express()
 app.use(express.json())
 
+// ============================================================================
+// Safety limits
+// ============================================================================
+const MAX_BASE_UNITS_PER_TX = BigInt(process.env.MAX_BASE_UNITS_PER_TX || '2000000') // $2 USDC default for demo
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_PER_WINDOW = parseInt(process.env.RATE_LIMIT_PER_MIN || '10')
+
+// In-memory rate limiter (for demo; use Redis in production)
+const requestLog = new Map()
+
+function checkRateLimit(key) {
+  const now = Date.now()
+  const windowStart = now - RATE_LIMIT_WINDOW_MS
+  
+  if (!requestLog.has(key)) {
+    requestLog.set(key, [])
+  }
+  
+  const reqs = requestLog.get(key).filter(t => t > windowStart)
+  if (reqs.length >= RATE_LIMIT_MAX_PER_WINDOW) {
+    return false
+  }
+  
+  reqs.push(now)
+  requestLog.set(key, reqs)
+  return true
+}
+
 app.use(cors({
   origin: (process.env.CORS_ORIGIN || '*').split(','),
   methods: ['POST', 'GET'],
@@ -145,18 +173,43 @@ app.post('/pay', async (req, res) => {
 })
 
 // NEW: /withdraw endpoint for Option 2 (client deposits, relayer withdraws)
-// Expects: { recipientAddress, mintAddress, base_units, payerPublicKey }
+// Expects: { recipientAddress, mintAddress, base_units, invoiceId, depositSig }
 // The SDK will fetch the payer's encrypted UTXOs and prove withdrawal
 app.post('/withdraw', async (req, res) => {
   try {
+    // Rate limit check
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown'
+    if (!checkRateLimit(clientIp)) {
+      return res.status(429).json({ ok: false, error: 'Rate limit exceeded' })
+    }
+
+    // Auth check
     const auth = req.headers.authorization || ''
     if (process.env.RELAYER_TOKEN && auth !== `Bearer ${process.env.RELAYER_TOKEN}`) {
       return res.status(401).json({ ok: false, error: 'unauthorized' })
     }
 
-    const { recipientAddress, mintAddress, base_units, payerPublicKey } = req.body || {}
-    if (!recipientAddress || !mintAddress || base_units === undefined || !payerPublicKey) {
-      return res.status(400).json({ ok: false, error: 'Missing recipientAddress/mintAddress/base_units/payerPublicKey' })
+    const { recipientAddress, mintAddress, base_units, invoiceId, depositSig } = req.body || {}
+    if (!recipientAddress || !mintAddress || base_units === undefined) {
+      return res.status(400).json({ ok: false, error: 'Missing recipientAddress/mintAddress/base_units' })
+    }
+
+    // Safety: check base_units against max
+    const amountInt = typeof base_units === 'string' ? BigInt(base_units) : BigInt(Math.trunc(base_units))
+    if (amountInt > MAX_BASE_UNITS_PER_TX) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: `Amount exceeds limit (max: ${MAX_BASE_UNITS_PER_TX.toString()}, got: ${amountInt.toString()})` 
+      })
+    }
+
+    // Safety: only allow mainnet USDC for now
+    const expectedUsdcMint = process.env.USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+    if (mintAddress !== expectedUsdcMint) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: `Unsupported mint. Expected ${expectedUsdcMint}` 
+      })
     }
 
     const RPC_url = process.env.HELIUS_RPC_URL
@@ -174,7 +227,7 @@ app.post('/withdraw', async (req, res) => {
     // Create SDK instance with relayer key (relayer pays for withdrawal)
     const pc = new PrivacyCash({ RPC_url, owner, enableDebug: true })
 
-    const amountStr = typeof base_units === 'string' ? base_units : String(Math.trunc(base_units))
+    const amountStr = amountInt.toString()
 
     // Perform withdraw only (SDK will fetch payer's UTXOs internally)
     const wd = await pc.withdrawSPL({

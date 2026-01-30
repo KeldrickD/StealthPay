@@ -1,0 +1,36 @@
+{
+  "name": "stealthpay",
+  "version": "1.0.0",
+  "description": "Private USDC payments on Solana with optional selective disclosure",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "node scripts/pc-wasm-copy.js"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "next": "^14.2.0",
+    "uuid": "^9.0.0",
+    "@solana/web3.js": "^1.95.0",
+    "@solana/wallet-adapter-base": "^0.9.25",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.36",
+    "@solana/wallet-adapter-wallets": "^0.19.19",
+    "qrcode.react": "^3.1.0",
+    "@privacy-cash/privacy-cash-sdk": "github:Privacy-Cash/privacy-cash-sdk"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.2.0"
+  }
+}

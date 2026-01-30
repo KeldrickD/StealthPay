@@ -128,7 +128,7 @@ app.post('/pay', async (req, res) => {
       return res.status(500).json({ ok: false, error: 'PrivacyCash export not found', exports: Object.keys(mod ?? {}) })
     }
 
-    const pc = new PrivacyCash({ RPC_url, owner, enableDebug: false })
+    const pc = new PrivacyCash({ RPC_url, owner, enableDebug: true })
 
     const amountStr = typeof base_units === 'string' ? base_units : String(Math.trunc(base_units))
 

@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { Connection, PublicKey } from '@solana/web3.js'
 
 const app = express()
 app.use(express.json())
@@ -46,6 +47,60 @@ app.get('/whoami', async (_, res) => {
     return res.status(500).json({ error: 'Could not decode PRIVACY_PAYER_SECRET' })
   } catch (e) {
     return res.status(500).json({ error: String(e?.message ?? e) })
+  }
+})
+
+app.get('/debug/token-accounts', async (req, res) => {
+  try {
+    const RPC_url = process.env.HELIUS_RPC_URL
+    const ownerPubkey = 'CPAd5VvTcfWTtg8rhhaL9xQyzyKT8t3DuHbAEPiX8nT5'
+    const mint = req.query.mint?.toString()
+
+    if (!mint) return res.status(400).json({ ok: false, error: 'missing ?mint=' })
+
+    const connection = new Connection(RPC_url)
+    const out = await connection.getParsedTokenAccountsByOwner(
+      new PublicKey(ownerPubkey),
+      { mint: new PublicKey(mint) }
+    )
+
+    res.json({
+      ok: true,
+      count: out.value.length,
+      accounts: out.value.map(v => ({
+        pubkey: v.pubkey.toBase58(),
+        uiAmount: v.account.data.parsed.info.tokenAmount.uiAmountString,
+        decimals: v.account.data.parsed.info.tokenAmount.decimals
+      }))
+    })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message ?? e) })
+  }
+})
+
+app.get('/debug/all-tokens', async (req, res) => {
+  try {
+    const RPC_url = process.env.HELIUS_RPC_URL
+    const ownerPubkey = 'CPAd5VvTcfWTtg8rhhaL9xQyzyKT8t3DuHbAEPiX8nT5'
+    const connection = new Connection(RPC_url)
+
+    const out = await connection.getParsedTokenAccountsByOwner(
+      new PublicKey(ownerPubkey),
+      { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
+    )
+
+    const tokens = out.value
+      .map(v => ({
+        tokenAccount: v.pubkey.toBase58(),
+        mint: v.account.data.parsed.info.mint,
+        uiAmount: v.account.data.parsed.info.tokenAmount.uiAmountString,
+        decimals: v.account.data.parsed.info.tokenAmount.decimals
+      }))
+      .filter(t => t.uiAmount !== '0')
+
+    res.json({ ok: true, tokens })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message ?? e) })
   }
 })
 

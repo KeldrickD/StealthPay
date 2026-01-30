@@ -4,20 +4,18 @@ const nextConfig = {
   swcMinify: true,
   webpack: (config, { isServer }) => {
     // Prevent Privacy Cash SDK from being bundled into browser
-    // SDK is Node.js only; will return mock in browser context
+    // SDK is Node.js only; browser gets empty stub
     if (!isServer) {
-      // Use a function to handle externals properly, especially for scoped packages
       config.externals = [
         ...(Array.isArray(config.externals) ? config.externals : [config.externals]).filter(Boolean),
         function(context, request, callback) {
-          // Mark Node.js SDK as external (won't be bundled)
+          // Provide empty stubs for Node.js modules so they don't break browser
           if (request === '@privacy-cash/privacy-cash-sdk' ||
               request === 'node-localstorage' ||
-              request === 'fs' ||
-              request === 'path' ||
-              request === 'crypto' ||
-              request === 'buffer') {
-            return callback(null, `commonjs ${request}`)
+              request === 'pino' ||
+              request === 'pino-pretty') {
+            // Return as variable assignment (empty object in browser)
+            return callback(null, `var {}`)
           }
           callback()
         }
@@ -30,6 +28,7 @@ const nextConfig = {
         buffer: false,
         net: false,
         tls: false,
+        stream: false,
       }
     }
     return config
@@ -37,5 +36,6 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
+
 
 

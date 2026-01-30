@@ -14,19 +14,31 @@ export async function sendPrivatePaymentViaPrivacyCash(args: {
 }): Promise<string> {
   const { recipientPubkey, amountCents, usdcMint } = args
 
-  try {
-    const r = await fetch('/api/privacy/pay', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ recipientPubkey, amountCents, usdcMint }),
-    })
-    if (!r.ok) throw new Error('Privacy Cash API failed')
-    const j = await r.json()
-    if (!j.tx) throw new Error('No signature from Privacy Cash API')
-    return j.tx as string
-  } catch (e) {
-    // Fallback to mock for demo continuity
-    await new Promise((r) => setTimeout(r, 1000))
-    return 'MockSig_' + Math.random().toString(36).slice(2)
+  // Demo mode: return mock signature without calling SDK
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+  if (isDemoMode) {
+    console.log('[Privacy] Demo mode enabled, returning mock signature')
+    await new Promise((r) => setTimeout(r, 1500))
+    return 'MockSig_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2)
   }
+
+  // Production mode: call Privacy Cash SDK via API
+  const r = await fetch('/api/privacy/pay', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ recipientPubkey, amountCents, usdcMint }),
+  })
+
+  if (!r.ok) {
+    const errorBody = await r.json().catch(() => ({}))
+    throw new Error(errorBody.error || `Privacy Cash API failed: ${r.status}`)
+  }
+
+  const j = await r.json()
+  if (!j.tx) {
+    throw new Error('No signature returned from Privacy Cash API')
+  }
+
+  return j.tx as string
 }
+

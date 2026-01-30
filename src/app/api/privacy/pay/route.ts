@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 
+// Vercel runtime hints: allow longer execution for deposit+withdraw
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
 function toUsdcBaseUnits(amountCents: number): number {
   // cents (10^2) -> USDC base units (10^6) => * 10^4
   return Math.round(amountCents * 10000)

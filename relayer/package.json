@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "node ./scripts/build-privacycash.mjs",
     "build": "node -e \"console.log('no build step for relayer')\"",
     "start": "node server.js"
   },

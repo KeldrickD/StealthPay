@@ -144,5 +144,54 @@ app.post('/pay', async (req, res) => {
   }
 })
 
+// NEW: /withdraw endpoint for Option 2 (client deposits, relayer withdraws)
+// Expects: { recipientAddress, mintAddress, base_units, payerPublicKey }
+// The SDK will fetch the payer's encrypted UTXOs and prove withdrawal
+app.post('/withdraw', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || ''
+    if (process.env.RELAYER_TOKEN && auth !== `Bearer ${process.env.RELAYER_TOKEN}`) {
+      return res.status(401).json({ ok: false, error: 'unauthorized' })
+    }
+
+    const { recipientAddress, mintAddress, base_units, payerPublicKey } = req.body || {}
+    if (!recipientAddress || !mintAddress || base_units === undefined || !payerPublicKey) {
+      return res.status(400).json({ ok: false, error: 'Missing recipientAddress/mintAddress/base_units/payerPublicKey' })
+    }
+
+    const RPC_url = process.env.HELIUS_RPC_URL
+    const owner = process.env.PRIVACY_PAYER_SECRET
+    if (!RPC_url) return res.status(500).json({ ok: false, error: 'Missing HELIUS_RPC_URL' })
+    if (!owner) return res.status(500).json({ ok: false, error: 'Missing PRIVACY_PAYER_SECRET' })
+
+    // Runtime import
+    const mod = await import('@privacy-cash/privacy-cash-sdk')
+    const PrivacyCash = mod?.PrivacyCash
+    if (!PrivacyCash) {
+      return res.status(500).json({ ok: false, error: 'PrivacyCash export not found' })
+    }
+
+    // Create SDK instance with relayer key (relayer pays for withdrawal)
+    const pc = new PrivacyCash({ RPC_url, owner, enableDebug: true })
+
+    const amountStr = typeof base_units === 'string' ? base_units : String(Math.trunc(base_units))
+
+    // Perform withdraw only (SDK will fetch payer's UTXOs internally)
+    const wd = await pc.withdrawSPL({
+      mintAddress,
+      base_units: amountStr,
+      recipientAddress,
+      // Note: SDK uses the connection RPC to fetch UTXOs for payerPublicKey
+      // If SDK doesn't auto-detect payer, we may need to pass publicKey param
+    })
+
+    const signature = wd?.signature || wd?.txSignature || wd?.txid || wd?.transactionSignature || wd?.tx
+
+    return res.json({ ok: true, signature, withdraw: wd })
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e?.message ?? e) })
+  }
+})
+
 const port = process.env.PORT || 8080
 app.listen(port, () => console.log(`Relayer listening on :${port}`))

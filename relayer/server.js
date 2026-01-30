@@ -13,7 +13,7 @@ app.use(cors({
 
 app.get('/health', (_, res) => res.json({ ok: true }))
 
-app.get('/whoami', (_, res) => {
+app.get('/whoami', async (_, res) => {
   try {
     const owner = process.env.PRIVACY_PAYER_SECRET
     if (!owner) return res.status(500).json({ error: 'Missing PRIVACY_PAYER_SECRET' })

@@ -13,6 +13,42 @@ app.use(cors({
 
 app.get('/health', (_, res) => res.json({ ok: true }))
 
+app.get('/whoami', (_, res) => {
+  try {
+    const owner = process.env.PRIVACY_PAYER_SECRET
+    if (!owner) return res.status(500).json({ error: 'Missing PRIVACY_PAYER_SECRET' })
+
+    // Try JSON array format (Solana keypair)
+    try {
+      const arr = JSON.parse(owner)
+      const { Keypair } = await import('@solana/web3.js')
+      const kp = Keypair.fromSecretKey(Uint8Array.from(arr))
+      return res.json({ 
+        pubkey: kp.publicKey.toBase58(),
+        rpc: process.env.HELIUS_RPC_URL,
+        format: 'json-array'
+      })
+    } catch {}
+
+    // Try base58 format
+    try {
+      const { default: bs58 } = await import('bs58')
+      const { Keypair } = await import('@solana/web3.js')
+      const decoded = bs58.decode(owner)
+      const kp = Keypair.fromSecretKey(decoded)
+      return res.json({ 
+        pubkey: kp.publicKey.toBase58(),
+        rpc: process.env.HELIUS_RPC_URL,
+        format: 'base58'
+      })
+    } catch {}
+
+    return res.status(500).json({ error: 'Could not decode PRIVACY_PAYER_SECRET' })
+  } catch (e) {
+    return res.status(500).json({ error: String(e?.message ?? e) })
+  }
+})
+
 app.post('/pay', async (req, res) => {
   try {
     const auth = req.headers.authorization || ''

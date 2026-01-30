@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
-function toUsdcBaseUnits(amountCents: number): bigint {
-  return BigInt(amountCents) * 10_000n
+function toUsdcBaseUnits(amountCents: number): number {
+  // cents (10^2) -> USDC base units (10^6) => * 10^4
+  return Math.round(amountCents * 10000)
 }
 
 export async function POST(req: Request) {

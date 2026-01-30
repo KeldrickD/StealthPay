@@ -14,31 +14,50 @@ export async function sendPrivatePaymentViaPrivacyCash(args: {
 }): Promise<string> {
   const { recipientPubkey, amountCents, usdcMint } = args
 
-  // Demo mode: return mock signature without calling SDK
-  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-  if (isDemoMode) {
-    console.log('[Privacy] Demo mode enabled, returning mock signature')
-    await new Promise((r) => setTimeout(r, 1500))
-    return 'MockSig_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2)
+  const relayer = process.env.NEXT_PUBLIC_RELAYER_URL
+  const token = process.env.NEXT_PUBLIC_RELAYER_TOKEN
+  const baseUnits = toUsdcBaseUnits(amountCents)
+
+  // Helper to return mock on failure
+  const mockSig = async () => {
+    await new Promise((r) => setTimeout(r, 800))
+    return 'mock_sdk_unavailable_' + Date.now()
   }
 
-  // Production mode: call Privacy Cash SDK via API
-  const r = await fetch('/api/privacy/pay', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ recipientPubkey, amountCents, usdcMint }),
-  })
+  try {
+    if (relayer) {
+      const r = await fetch(`${relayer.replace(/\/$/, '')}/pay`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          recipientAddress: recipientPubkey,
+          mintAddress: usdcMint,
+          base_units: String(baseUnits),
+        }),
+      })
+      if (!r.ok) throw new Error('Relayer API failed')
+      const j = await r.json()
+      const sig = j.signature || j.tx
+      if (!sig) throw new Error('No signature from relayer')
+      return String(sig)
+    }
 
-  if (!r.ok) {
-    const errorBody = await r.json().catch(() => ({}))
-    throw new Error(errorBody.error || `Privacy Cash API failed: ${r.status}`)
+    // Fallback to local API route if relayer not configured
+    const r = await fetch('/api/privacy/pay', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ recipientPubkey, amountCents, usdcMint }),
+    })
+    if (!r.ok) throw new Error('Privacy Cash API failed')
+    const j = await r.json()
+    const sig = j.tx
+    if (!sig) throw new Error('No signature from Privacy Cash API')
+    return String(sig)
+  } catch (_) {
+    return await mockSig()
   }
-
-  const j = await r.json()
-  if (!j.tx) {
-    throw new Error('No signature returned from Privacy Cash API')
-  }
-
-  return j.tx as string
 }
 

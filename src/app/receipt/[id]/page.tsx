@@ -32,6 +32,8 @@ export default function Receipt() {
   const [showDisclosure, setShowDisclosure] = useState(false)
   const [confirmStatus, setConfirmStatus] = useState<'pending' | 'confirmed' | 'error'>('pending')
   const [confirmErr, setConfirmErr] = useState<string | null>(null)
+  const [screeningInfo, setScreeningInfo] = useState<any | null>(null)
+  const isMock = txSignature?.startsWith('mock_')
 
   useEffect(() => {
     const stored = localStorage.getItem(`invoice_${invoiceId}`)
@@ -39,6 +41,14 @@ export default function Receipt() {
       const inv = JSON.parse(stored)
       setInvoice(inv)
       setComplianceMode(inv.compliance)
+    }
+    // Load stored receipt details for screening, if any
+    const r = localStorage.getItem(`receipt_${invoiceId}`)
+    if (r) {
+      try {
+        const j = JSON.parse(r)
+        if (j?.screening) setScreeningInfo(j.screening)
+      } catch {}
     }
   }, [invoiceId])
 
@@ -55,7 +65,7 @@ export default function Receipt() {
       }
     })()
 
-    if (!sig) return
+    if (!sig || sig.startsWith('mock_')) return // skip polling for mock signatures
 
     let active = true
     let interval: any
@@ -143,17 +153,21 @@ export default function Receipt() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="bg-slate-700 rounded-lg p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold text-white mb-2">
-          {confirmStatus === 'confirmed' ? 'Payment Received ✅' : 'Awaiting Confirmation ⏳'}
+          {isMock ? 'Payment Simulated (Demo) 🧪' : confirmStatus === 'confirmed' ? 'Payment Received ✅' : 'Awaiting Confirmation ⏳'}
         </h1>
         <p className="text-slate-300 mb-6">
-          {confirmStatus === 'confirmed' ? 'Your transaction has been confirmed.' : 'We are confirming your transaction on-chain...'}
+          {isMock
+            ? 'This environment used a simulated tx (privacy SDK unavailable).'
+            : confirmStatus === 'confirmed'
+            ? 'Your transaction has been confirmed.'
+            : 'We are confirming your transaction on-chain...'}
         </p>
 
         <div className="bg-slate-600 rounded p-4 mb-6 space-y-3">
           <div>
             <p className="text-slate-400 text-sm">Status</p>
             <p className="text-green-400 font-bold">
-              {confirmStatus === 'confirmed' ? 'Confirmed' : 'Pending'}
+              {isMock ? 'Simulated' : confirmStatus === 'confirmed' ? 'Confirmed' : 'Pending'}
             </p>
           </div>
           
@@ -204,8 +218,14 @@ export default function Receipt() {
 
         {complianceMode && (
           <div className="bg-purple-900 border border-purple-700 rounded p-3 mb-6 text-sm text-purple-100">
-            <p className="font-bold mb-1">✓ Compliance Screened</p>
-            <p>Sender has been verified against compliance databases.</p>
+            <p className="font-bold mb-1">Compliance</p>
+            {!screeningInfo ? (
+              <p>Enabled (demo)</p>
+            ) : screeningInfo.blocked ? (
+              <p className="text-red-200">Blocked by screening</p>
+            ) : (
+              <p>Screening passed</p>
+            )}
           </div>
         )}
 

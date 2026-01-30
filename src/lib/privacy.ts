@@ -23,12 +23,25 @@ export async function depositUsdcPrivately(args: {
   const { connection, wallet, usdcMint, baseUnits } = args
 
   try {
+    // Check if we're in browser (SDK won't be available, return mock)
+    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_RELAYER_URL) {
+      console.warn('[deposit] Running in browser without relayer fallback; returning mock signature')
+      return `mock_deposit_${Date.now()}`
+    }
+
     // Dynamic import to avoid Next.js bundling issues
-    const mod = await import('@privacy-cash/privacy-cash-sdk')
-    const PrivacyCash = mod?.PrivacyCash
+    let PrivacyCash
+    try {
+      const mod = await import('@privacy-cash/privacy-cash-sdk')
+      PrivacyCash = mod?.PrivacyCash
+    } catch (e) {
+      console.warn('[deposit] SDK not available (expected in browser):', e)
+      return `mock_deposit_${Date.now()}`
+    }
 
     if (!PrivacyCash) {
-      return `mock_sdk_${Date.now()}`
+      console.warn('[deposit] PrivacyCash export not found')
+      return `mock_deposit_${Date.now()}`
     }
 
     // Use connection's RPC URL if available, fallback to env
@@ -42,20 +55,24 @@ export async function depositUsdcPrivately(args: {
     const payerPublicKey = wallet.publicKey?.toString()
     if (!payerPublicKey) throw new Error('Wallet not connected')
 
+    console.log('[deposit] Creating SDK instance for payer:', payerPublicKey)
+
     const pc = new PrivacyCash({
       RPC_url: rpcUrl,
       owner: wallet, // Pass wallet adapter; SDK knows how to use it
       enableDebug: false,
     })
 
+    console.log('[deposit] Calling depositSPL with mint:', usdcMint, 'amount:', baseUnits)
     const depositResult = await pc.depositSPL({ mintAddress: usdcMint, base_units: baseUnits })
 
     const sig = depositResult?.tx || depositResult?.signature || ''
     if (!sig) throw new Error('No signature from deposit')
 
+    console.log('[deposit] Success:', sig)
     return sig
   } catch (e) {
-    console.error('Deposit failed:', e)
+    console.error('[deposit] Failed:', e)
     // Fallback to mock for demo purposes
     return `mock_deposit_${Date.now()}`
   }

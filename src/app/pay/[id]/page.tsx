@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Connection } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 
 // ✅ your existing helpers
 import { depositUsdcPrivately, withdrawViaRelayer } from '@/lib/privacy'
@@ -42,6 +43,7 @@ export default function PayInvoicePage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null)
 
   const [depositSig, setDepositSig] = useState<string | null>(null)
   const [withdrawSig, setWithdrawSig] = useState<string | null>(null)
@@ -66,6 +68,10 @@ export default function PayInvoicePage() {
     if (!rpcUrl) return null
     return new Connection(rpcUrl, 'confirmed')
   }, [rpcUrl])
+
+  useEffect(() => {
+    setCurrentUrl(window.location.href)
+  }, [])
 
   useEffect(() => {
     try {
@@ -212,6 +218,9 @@ export default function PayInvoicePage() {
   }
 
   const amountDue = `${centsToUsdc(invoice.amountCents)} USDC`
+  const phantomLink = currentUrl
+    ? `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}`
+    : null
 
   const canDeposit =
     !!wallet?.publicKey && !depositSig && !busy.depositing && !busy.screening
@@ -239,6 +248,9 @@ export default function PayInvoicePage() {
                 <span className="text-slate-400">Not connected</span>
               )}
             </div>
+            <div className="mt-2">
+              <WalletMultiButton className="!bg-slate-700 !hover:bg-slate-600 !text-white !h-8 !text-sm" />
+            </div>
           </div>
         </div>
 
@@ -258,6 +270,15 @@ export default function PayInvoicePage() {
             </div>
           ) : null}
         </div>
+
+        {phantomLink ? (
+          <a
+            href={phantomLink}
+            className="block w-full text-center mb-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded transition"
+          >
+            Open in Phantom
+          </a>
+        ) : null}
 
         <div className="bg-amber-900/40 border border-amber-700 rounded p-3 mb-3 text-sm text-amber-100">
           <div className="font-bold">Privacy Mode Active</div>

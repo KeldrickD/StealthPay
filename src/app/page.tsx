@@ -17,6 +17,9 @@ export default function CreateInvoice() {
   const [invoiceId, setInvoiceId] = useState<string | null>(null)
   const [qrValue, setQrValue] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const phantomLink = qrValue
+    ? `https://phantom.app/ul/browse/${encodeURIComponent(qrValue)}`
+    : null
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -75,8 +78,14 @@ export default function CreateInvoice() {
           
           <div className="bg-white p-4 rounded-lg mb-6 text-center">
             {qrValue && <QRCodeCanvas value={qrValue} size={180} />}
-            <p className="text-gray-600 text-sm mt-2">Scan to pay</p>
+            <p className="text-gray-600 text-sm mt-2">Scan to pay (desktop)</p>
             <p className="text-gray-500 text-xs mt-2 break-all">{qrValue}</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg mb-6 text-center">
+            {phantomLink && <QRCodeCanvas value={phantomLink} size={180} />}
+            <p className="text-gray-600 text-sm mt-2">Scan with Phantom (mobile)</p>
+            <p className="text-gray-500 text-xs mt-2 break-all">{phantomLink}</p>
           </div>
 
           <div className="text-white space-y-4 mb-6">
@@ -100,7 +109,7 @@ export default function CreateInvoice() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => {
                 navigator.clipboard.writeText(qrValue || '')
@@ -108,6 +117,14 @@ export default function CreateInvoice() {
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               Copy Link
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(phantomLink || '')
+              }}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Copy Phantom Link
             </button>
             <button
               onClick={() => {

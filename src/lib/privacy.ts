@@ -23,25 +23,12 @@ export async function depositUsdcPrivately(args: {
   const { connection, wallet, usdcMint, baseUnits } = args
 
   try {
-    // Check if we're in browser (SDK won't be available, return mock)
-    if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_RELAYER_URL) {
-      console.warn('[deposit] Running in browser without relayer fallback; returning mock signature')
-      return `mock_deposit_${Date.now()}`
-    }
-
     // Dynamic import to avoid Next.js bundling issues
-    let PrivacyCash
-    try {
-      const mod = await import('@privacy-cash/privacy-cash-sdk')
-      PrivacyCash = mod?.PrivacyCash
-    } catch (e) {
-      console.warn('[deposit] SDK not available (expected in browser):', e)
-      return `mock_deposit_${Date.now()}`
-    }
+    const mod = await import('@privacy-cash/privacy-cash-sdk')
+    const PrivacyCash = mod?.PrivacyCash
 
     if (!PrivacyCash) {
-      console.warn('[deposit] PrivacyCash export not found')
-      return `mock_deposit_${Date.now()}`
+      throw new Error('PrivacyCash export not found')
     }
 
     // Use connection's RPC URL if available, fallback to env
@@ -73,8 +60,7 @@ export async function depositUsdcPrivately(args: {
     return sig
   } catch (e) {
     console.error('[deposit] Failed:', e)
-    // Fallback to mock for demo purposes
-    return `mock_deposit_${Date.now()}`
+    throw e
   }
 }
 
@@ -124,7 +110,7 @@ export async function withdrawViaRelayer(args: {
     return sig
   } catch (e) {
     console.error('Withdrawal via relayer failed:', e)
-    return `mock_withdrawal_${Date.now()}`
+    throw e
   }
 }
 
@@ -144,12 +130,6 @@ export async function sendPrivatePaymentViaPrivacyCash(args: {
   const relayer = process.env.NEXT_PUBLIC_RELAYER_URL
   const token = process.env.NEXT_PUBLIC_RELAYER_TOKEN
   const baseUnits = toUsdcBaseUnits(amountCents)
-
-  // Helper to return mock on failure
-  const mockSig = async () => {
-    await new Promise((r) => setTimeout(r, 800))
-    return 'mock_sdk_unavailable_' + Date.now()
-  }
 
   try {
     if (relayer) {
@@ -183,8 +163,9 @@ export async function sendPrivatePaymentViaPrivacyCash(args: {
     const sig = j.tx
     if (!sig) throw new Error('No signature from Privacy Cash API')
     return String(sig)
-  } catch (_) {
-    return await mockSig()
+  } catch (e) {
+    console.error('Private payment failed:', e)
+    throw e
   }
 }
 

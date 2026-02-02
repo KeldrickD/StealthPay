@@ -37,22 +37,22 @@ export async function POST(req: Request) {
     const owner = process.env.PRIVACY_PAYER_SECRET
 
     if (!RPC_url) {
-      return NextResponse.json({ ok: true, mocked: true, tx: `mock_no_rpc_${Date.now()}` })
+      return jsonError('Missing RPC URL', 500)
     }
     if (!owner) {
-      return NextResponse.json({ ok: true, mocked: true, tx: `mock_no_owner_${Date.now()}` })
+      return jsonError('Missing PRIVACY_PAYER_SECRET', 500)
     }
 
     let mod: any
     try {
       mod = await loadPrivacyCashSdk()
     } catch (e: any) {
-      return NextResponse.json({ ok: true, mocked: true, tx: `mock_sdk_unavailable_${Date.now()}` })
+      return jsonError('Privacy Cash SDK unavailable', 500, { detail: String(e?.message ?? e) })
     }
 
     const PrivacyCash = mod?.PrivacyCash
     if (!PrivacyCash) {
-      return NextResponse.json({ ok: true, mocked: true, tx: `mock_sdk_exports_${Date.now()}` })
+      return jsonError('Privacy Cash SDK export not found', 500)
     }
 
     const pc = new PrivacyCash({ RPC_url, owner, enableDebug: false })

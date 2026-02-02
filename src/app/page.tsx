@@ -20,6 +20,12 @@ export default function CreateInvoice() {
   const phantomLink = qrValue
     ? `https://phantom.app/ul/browse/${encodeURIComponent(qrValue)}`
     : null
+  const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL
+  const usdcMint = process.env.NEXT_PUBLIC_USDC_MINT
+  const expectedUsdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  const isMainnetMint = usdcMint === expectedUsdcMint
+  const isMainnetRpc = !!rpcUrl && !/devnet|testnet/i.test(rpcUrl)
+  const mainnetLive = isMainnetMint && isMainnetRpc
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -146,6 +152,15 @@ export default function CreateInvoice() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="bg-slate-700 rounded-lg p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold text-white mb-2">StealthPay</h1>
+        <div
+          className={
+            mainnetLive
+              ? 'mb-3 inline-block rounded-full bg-emerald-600/20 text-emerald-200 text-xs px-3 py-1'
+              : 'mb-3 inline-block rounded-full bg-amber-600/20 text-amber-200 text-xs px-3 py-1'
+          }
+        >
+          {mainnetLive ? 'Mainnet live' : 'Mainnet not configured'}
+        </div>
         <p className="text-slate-300 mb-6">Privacy by default. Proof by choice.</p>
 
         <form onSubmit={handleCreateInvoice} className="space-y-4">

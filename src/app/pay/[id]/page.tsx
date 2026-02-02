@@ -63,6 +63,10 @@ export default function PayInvoicePage() {
   const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL
   const usdcMint = process.env.NEXT_PUBLIC_USDC_MINT
   const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_URL
+  const expectedUsdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  const isMainnetMint = usdcMint === expectedUsdcMint
+  const isMainnetRpc = !!rpcUrl && !/devnet|testnet/i.test(rpcUrl)
+  const mainnetLive = isMainnetMint && isMainnetRpc
 
   const connection = useMemo(() => {
     if (!rpcUrl) return null
@@ -235,6 +239,15 @@ export default function PayInvoicePage() {
           <div>
             <h1 className="text-2xl font-bold text-white">Pay Invoice</h1>
             <p className="text-slate-300 text-sm">Privacy by default. Proof by choice.</p>
+            <div
+              className={
+                mainnetLive
+                  ? 'mt-2 inline-block rounded-full bg-emerald-600/20 text-emerald-200 text-xs px-3 py-1'
+                  : 'mt-2 inline-block rounded-full bg-amber-600/20 text-amber-200 text-xs px-3 py-1'
+              }
+            >
+              {mainnetLive ? 'Mainnet live' : 'Mainnet not configured'}
+            </div>
           </div>
 
           <div className="text-right">

@@ -7,7 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 
 // ✅ your existing helpers
-import { depositUsdcPrivately, withdrawViaRelayer } from '@/lib/privacy'
+import { sendPrivatePaymentViaPrivacyCash, withdrawViaRelayer } from '@/lib/privacy'
 
 type InvoiceStatus =
   | 'created'
@@ -117,7 +117,6 @@ export default function PayInvoicePage() {
     setError(null)
 
     if (!invoice) return setError('Invoice missing.')
-    if (!connection) return setError('Missing NEXT_PUBLIC_HELIUS_RPC_URL.')
     if (!usdcMint) return setError('Missing NEXT_PUBLIC_USDC_MINT.')
     if (!wallet?.publicKey) return setError('Connect a wallet to pay.')
 
@@ -125,27 +124,30 @@ export default function PayInvoicePage() {
       setBusy((s) => ({ ...s, depositing: true }))
       persistInvoice({ status: 'deposit_pending' })
 
-      // Convert cents -> base units (USDC has 6 decimals).
-      // amountCents = dollars*100. USDC base units = dollars * 1e6
-      // dollars = cents/100 => baseUnits = (cents/100) * 1e6 = cents * 10_000
-      const baseUnits = (BigInt(invoice.amountCents) * 10_000n).toString()
-
-      const sig = await depositUsdcPrivately({
-        connection,
-        wallet,
+      const sig = await sendPrivatePaymentViaPrivacyCash({
+        connection: connection || ({} as Connection),
+        payerWallet: wallet,
+        recipientPubkey: invoice.recipientPubkey,
+        amountCents: invoice.amountCents,
         usdcMint,
-        baseUnits,
       })
 
       if (!isValidBase58Sig(sig)) {
-        throw new Error('Deposit returned invalid signature. Check SDK/relayer configuration.')
+        throw new Error('Payment returned invalid signature. Check relayer configuration.')
       }
 
       setDepositSig(sig)
-      persistInvoice({ status: 'deposit_confirmed' })
+      setWithdrawSig(sig)
+      persistInvoice({ status: 'confirmed' })
+
+      const qs = new URLSearchParams({
+        deposit: sig,
+        withdraw: sig,
+      }).toString()
+      router.push(`/receipt/${invoice.id}?${qs}`)
     } catch (e: any) {
       persistInvoice({ status: 'failed' })
-      setError(e?.message || 'Deposit failed.')
+      setError(e?.message || 'Payment failed.')
     } finally {
       setBusy((s) => ({ ...s, depositing: false }))
     }
@@ -337,12 +339,12 @@ export default function PayInvoicePage() {
             : busy.depositing
               ? 'Depositing…'
               : depositSig
-                ? 'Deposit complete ✅'
-                : 'Deposit privately'}
+                ? 'Payment complete ✅'
+                : 'Pay privately'}
         </button>
 
         {/* Optional: confirm deposit */}
-        {depositSig ? (
+        {depositSig && !withdrawSig ? (
           <button
             onClick={confirmDepositOnChain}
             disabled={busy.confirmingDeposit}

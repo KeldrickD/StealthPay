@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Private USDC payments on Solana with optional selective disclosure",
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --port 3000 && node docs/index.js",
     "build": "next build",
-    "start": "next start",
+    "start": "next start && node docs/index.js",
     "lint": "next lint",
     "postinstall": "node scripts/pc-wasm-copy.js"
   },

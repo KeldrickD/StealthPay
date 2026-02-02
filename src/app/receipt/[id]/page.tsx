@@ -24,7 +24,9 @@ export default function Receipt() {
   const router = useRouter()
   
   const invoiceId = params.id as string
-  const txSignature = searchParams.get('tx')
+  const depositSig = searchParams.get('deposit')
+  const withdrawSig = searchParams.get('withdraw')
+  const txSignature = searchParams.get('tx') || withdrawSig || depositSig
   
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [disclosed, setDisclosed] = useState(false)
@@ -33,7 +35,10 @@ export default function Receipt() {
   const [confirmStatus, setConfirmStatus] = useState<'pending' | 'confirmed' | 'error'>('pending')
   const [confirmErr, setConfirmErr] = useState<string | null>(null)
   const [screeningInfo, setScreeningInfo] = useState<any | null>(null)
-  const isMock = txSignature?.startsWith('mock_')
+  const isMock =
+    (txSignature && txSignature.startsWith('mock_')) ||
+    (depositSig && depositSig.startsWith('mock_')) ||
+    (withdrawSig && withdrawSig.startsWith('mock_'))
 
   useEffect(() => {
     const stored = localStorage.getItem(`invoice_${invoiceId}`)
@@ -196,10 +201,12 @@ export default function Receipt() {
             <p className="text-xs text-slate-300">{new Date(invoice.createdAt).toLocaleString()}</p>
           </div>
 
-          {txSignature && (
+          {(withdrawSig || depositSig || txSignature) && (
             <div>
               <p className="text-slate-400 text-sm">Transaction</p>
-              <p className="text-xs text-slate-300 font-mono truncate">{txSignature}</p>
+              <p className="text-xs text-slate-300 font-mono truncate">
+                {withdrawSig || depositSig || txSignature}
+              </p>
             </div>
           )}
           {!txSignature && (

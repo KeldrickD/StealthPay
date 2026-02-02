@@ -50,8 +50,13 @@ export async function depositUsdcPrivately(args: {
       enableDebug: false,
     })
 
-    console.log('[deposit] Calling depositSPL with mint:', usdcMint, 'amount:', baseUnits)
-    const depositResult = await pc.depositSPL({ mintAddress: usdcMint, base_units: baseUnits })
+    const baseUnitsNumber = Number(baseUnits)
+    if (!Number.isFinite(baseUnitsNumber)) {
+      throw new Error('Invalid baseUnits amount')
+    }
+
+    console.log('[deposit] Calling depositSPL with mint:', usdcMint, 'amount:', baseUnitsNumber)
+    const depositResult: any = await pc.depositSPL({ mintAddress: usdcMint, base_units: baseUnitsNumber })
 
     const sig = depositResult?.tx || depositResult?.signature || ''
     if (!sig) throw new Error('No signature from deposit')

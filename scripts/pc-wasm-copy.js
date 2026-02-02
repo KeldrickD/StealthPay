@@ -15,6 +15,18 @@ try {
   const nm = path.join(__dirname, '..', 'node_modules');
   const hasherDist = path.join(nm, '@lightprotocol', 'hasher.rs', 'dist');
   const browserFatEs = path.join(hasherDist, 'browser-fat', 'es');
+  const nestedHasherDist = path.join(
+    nm,
+    '@privacy-cash',
+    'privacy-cash-sdk',
+    'node_modules',
+    '@lightprotocol',
+    'hasher.rs',
+    'dist'
+  );
+  const nestedBrowserFatEs = path.join(nestedHasherDist, 'browser-fat', 'es');
+  const destDirs = [browserFatEs];
+  if (fs.existsSync(nestedHasherDist)) destDirs.push(nestedBrowserFatEs);
 
   const files = [
     path.join(hasherDist, 'hasher_wasm_simd_bg.wasm'),
@@ -23,10 +35,12 @@ try {
 
   let copied = 0;
   for (const f of files) {
-    if (copyIfExists(f, browserFatEs)) copied++;
+    for (const dest of destDirs) {
+      if (copyIfExists(f, dest)) copied++;
+    }
   }
 
-  console.log(`[postinstall] Privacy-Cash wasm copy: ${copied}/${files.length} files copied.`);
+  console.log(`[postinstall] Privacy-Cash wasm copy: ${copied}/${files.length * destDirs.length} files copied.`);
 
   // Attempt to build the SDK locally if dist is missing (git dependency often lacks prebuilt dist)
   const sdkDir = path.join(nm, '@privacy-cash', 'privacy-cash-sdk');

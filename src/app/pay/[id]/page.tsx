@@ -34,6 +34,13 @@ function centsToUsdc(amountCents: number) {
   return (amountCents / 100).toFixed(2)
 }
 
+function isValidBase58Sig(sig: string) {
+  if (!sig) return false
+  if (sig.startsWith('mock_')) return false
+  if (sig.length < 43) return false
+  return /^[1-9A-HJ-NP-Za-km-z]+$/.test(sig)
+}
+
 export default function PayInvoicePage() {
   const params = useParams()
   const router = useRouter()
@@ -130,6 +137,10 @@ export default function PayInvoicePage() {
         baseUnits,
       })
 
+      if (!isValidBase58Sig(sig)) {
+        throw new Error('Deposit returned invalid signature. Check SDK/relayer configuration.')
+      }
+
       setDepositSig(sig)
       persistInvoice({ status: 'deposit_confirmed' })
     } catch (e: any) {
@@ -176,6 +187,10 @@ export default function PayInvoicePage() {
         depositSig,
         invoiceId: invoice.id,
       })
+
+      if (!isValidBase58Sig(sig)) {
+        throw new Error('Withdraw returned invalid signature. Check relayer configuration.')
+      }
 
       setWithdrawSig(sig)
       persistInvoice({ status: 'confirmed' })
